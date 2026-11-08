@@ -1,0 +1,6 @@
+{
+  "name": "XR Robotic Arm Simulator",
+  "description": "Interactive WebXR robotic arm simulator with pick-and-place automation, customizable grabbable objects, manual joint controls, and spatial mixed-reality placement.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

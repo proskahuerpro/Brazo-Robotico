@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan de implementación completo para el simulador interactivo de brazo robótico en WebXR / Realidad Mixta (XR Blocks, Three.js).\nIncluye arquitectura de clases, cinemática directa e inversa (FK/IK), pinza mecánica bi-articulada con agarre físico de objetos, colocación espacial AR en mesa/superficie, pedestales A y B, modo automático y cinta transportadora continua, audio sintetizado de servomotores y Spatial UI con UIKit.",
+  "updatedAt":  "2026-11-08T17:04:55.310948078Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
