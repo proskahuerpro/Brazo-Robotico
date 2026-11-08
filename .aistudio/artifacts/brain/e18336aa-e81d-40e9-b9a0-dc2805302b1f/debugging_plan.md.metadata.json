@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan de corrección y depuración integral para el simulador de brazo robótico en Meta Quest WebXR:\n1. Depurar y corregir la aparición y física de los objetos 3D: renderOrder, dimensiones optimizadas, re-parenting y visualización clara sobre los pedestales.\n2. Incorporar control completo de rotación de muñeca 360° (Roll -180° a 180°) y cabeceo (Pitch) tanto en el modelo 3D como en los deslizadores de la Spatial UI.\n3. Añadir resaltado visual (halo emissive) cuando las tenazas detectan un objeto en rango de agarre.\n4. Eliminar la cinta transportadora animada y limpiar la mesa de trabajo para evitar confusiones visuales.\n5. Optimizar la interacción táctil y por puntero en Meta Quest para garantizar respuesta inmediata de los botones y deslizadores de la interfaz.",
+  "updatedAt":  "2026-11-08T21:01:32.373880707Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

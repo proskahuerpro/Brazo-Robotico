@@ -11,7 +11,7 @@ import { OBJECT_PRESETS } from './constants.ts';
 
 /**
  * Main WebXR Scene integrating the robotic arm simulator, spatial workstation,
- * grabbable objects, procedural audio, and spatial UI card.
+ * grabbable 3D objects with proximity highlighting, audio, and spatial UI card.
  */
 class RoboticArmScene extends xb.Script {
   private workstation!: Workstation;
@@ -30,8 +30,8 @@ class RoboticArmScene extends xb.Script {
     this.audio = new RobotAudio();
 
     // 1. Scene Lighting
-    this.add(new THREE.HemisphereLight(0xffffff, 0x334155, 2.5));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    this.add(new THREE.HemisphereLight(0xffffff, 0x334155, 2.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
     dirLight.position.set(2, 4, 3);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 1024;
@@ -40,8 +40,7 @@ class RoboticArmScene extends xb.Script {
     dirLight.shadow.camera.far = 10;
     this.add(dirLight);
 
-    // Subtle blue fill light from rear
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
     rimLight.position.set(-2, 2, -2);
     this.add(rimLight);
 
@@ -51,13 +50,13 @@ class RoboticArmScene extends xb.Script {
     this.stageRoot.name = 'RoboticStageRoot';
     this.add(this.stageRoot);
 
-    // 3. Workstation with table & pedestals
+    // 3. Workstation with table & pedestals (conveyor belt removed)
     this.workstation = new Workstation();
     this.stageRoot.add(this.workstation);
 
     // 4. Robotic Arm
     this.robot = new RobotArm();
-    this.robot.position.set(0, 0, 0); // At the center of the workstation
+    this.robot.position.set(0, 0, 0);
     this.stageRoot.add(this.robot);
 
     // 5. Grabbables Manager
@@ -86,18 +85,18 @@ class RoboticArmScene extends xb.Script {
       this.sequence,
       this.grabbables,
       this.audio,
+      this.workstation.positionA,
+      this.workstation.positionB,
       () => {
         this.isPlacingOnTable = true;
       }
     );
     this.add(this.spatialUI);
 
-    // Listen to direct clicks/touches on robot parts for interactive feedback
     this.setupInteractivity();
   }
 
   private setupInteractivity() {
-    // Enable manipulation on the UI Card so users can reposition or rotate it anywhere in space
     this.spatialUI.card.xb = { manipulation: true };
   }
 
@@ -116,16 +115,16 @@ class RoboticArmScene extends xb.Script {
       this.spatialUI.updateSlidersFromRobot();
     }
 
-    // 4. Update conveyor belt texture animation when active
-    this.workstation.updateBeltAnimation(deltaTime);
-
-    // 5. Update object physics (gravity fall to table/pedestals)
+    // 4. Object physics & proximity highlighting
     this.robot.getGripperWorldPosition(this.tempTipPos);
 
-    // Transform tip position to local coordinates of stageRoot for consistent object physics
     const localTipPos = this.tempTipPos.clone();
     this.stageRoot.worldToLocal(localTipPos);
 
+    // Update glowing highlight on objects close to the claws
+    this.grabbables.updateProximityHighlight(localTipPos, this.robot.angles.gripper);
+
+    // Update object gravity and resting positions
     this.grabbables.updatePhysics(
       deltaTime,
       localTipPos,
@@ -134,9 +133,6 @@ class RoboticArmScene extends xb.Script {
     );
   }
 
-  /**
-   * Surface placement on real-world table / depth mesh in WebXR
-   */
   onSelectStart(event: any) {
     if (this.isPlacingOnTable && event.intersection) {
       this.stageRoot.position.copy(event.intersection.point);
@@ -162,17 +158,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     'Interactive 5-DOF robotic arm simulator with pick-and-place automation, customizable grabbable objects, manual joint controls, and spatial mixed-reality placement.'
   );
 
-  // Enable hand tracking and controller support for Meta Quest and simulated environments
   options.enableHands();
   options.hands.visualization = true;
   options.enableReticles();
   options.reticles.enabled = true;
 
-  // Mixed Reality surface detection
   options.enableDepth();
   options.reticles.projectOnDepthMesh = true;
 
-  // Simulator defaults for desktop testing
   options.simulator.defaultMode = xb.SimulatorMode.CONTROLLER;
   options.xrButton.showEnterSimulatorButton = true;
 

@@ -5,12 +5,12 @@ export class Workstation extends THREE.Group {
   public tableSurface: THREE.Mesh;
   public pedestalA: THREE.Group;
   public pedestalB: THREE.Group;
-  public conveyorBelt: THREE.Group;
-  private beltTexture: THREE.CanvasTexture | null = null;
 
-  // World coordinates of Pedestals A and B (relative to workstation origin)
-  public readonly positionA = new THREE.Vector3(-0.24, 0.08, 0.22);
-  public readonly positionB = new THREE.Vector3(0.24, 0.08, 0.22);
+  // Exact coordinates of Pedestals A and B
+  // Pedestal A (Left / Origin): x: -0.25, y: 0.075, z: 0.22
+  // Pedestal B (Right / Destination): x: 0.25, y: 0.075, z: 0.22
+  public readonly positionA = new THREE.Vector3(-0.25, 0.075, 0.22);
+  public readonly positionB = new THREE.Vector3(0.25, 0.075, 0.22);
 
   constructor() {
     super();
@@ -22,31 +22,26 @@ export class Workstation extends THREE.Group {
       roughness: 0.7,
       metalness: 0.2,
     });
-    const tableGeom = new THREE.BoxGeometry(1.0, 0.04, 0.75);
+    const tableGeom = new THREE.BoxGeometry(0.95, 0.04, 0.65);
     this.tableSurface = new THREE.Mesh(tableGeom, tableMat);
-    this.tableSurface.position.set(0, -0.02, 0.1);
+    this.tableSurface.position.set(0, -0.02, 0.08);
     this.tableSurface.receiveShadow = true;
     this.add(this.tableSurface);
 
     // Decorative grid lines on work surface
-    const gridHelper = new THREE.GridHelper(0.9, 18, 0xff6600, 0x334155);
-    gridHelper.position.set(0, 0.001, 0.1);
+    const gridHelper = new THREE.GridHelper(0.85, 14, 0xff6600, 0x334155);
+    gridHelper.position.set(0, 0.001, 0.08);
     this.add(gridHelper);
 
     // 2. Pedestal A (Origin / Pick-up)
     this.pedestalA = this.createPedestal('A', ROBOT_PALETTE.pedestalA);
-    this.pedestalA.position.copy(this.positionA);
+    this.pedestalA.position.set(this.positionA.x, 0, this.positionA.z);
     this.add(this.pedestalA);
 
     // 3. Pedestal B (Destination / Drop-off)
     this.pedestalB = this.createPedestal('B', ROBOT_PALETTE.pedestalB);
-    this.pedestalB.position.copy(this.positionB);
+    this.pedestalB.position.set(this.positionB.x, 0, this.positionB.z);
     this.add(this.pedestalB);
-
-    // 4. Animated Conveyor Belt linking between A and B
-    this.conveyorBelt = this.createConveyorBelt();
-    this.conveyorBelt.position.set(0, 0.02, 0.32);
-    this.add(this.conveyorBelt);
   }
 
   private createPedestal(label: string, colorHex: number): THREE.Group {
@@ -58,7 +53,7 @@ export class Workstation extends THREE.Group {
       roughness: 0.4,
       metalness: 0.5,
     });
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.07, 24), baseMat);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.07, 32), baseMat);
     base.position.y = 0.035;
     base.castShadow = true;
     base.receiveShadow = true;
@@ -71,24 +66,24 @@ export class Workstation extends THREE.Group {
       emissiveIntensity: 0.6,
       roughness: 0.2,
     });
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.004, 12, 24), glowMat);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.074, 0.004, 12, 32), glowMat);
     rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.07;
     group.add(rim);
 
-    // Target pad surface
+    // Target pad landing surface (height = 0.075m)
     const padMat = new THREE.MeshStandardMaterial({
       color: 0x111827,
       roughness: 0.8,
     });
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.005, 24), padMat);
-    pad.position.y = 0.072;
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.006, 32), padMat);
+    pad.position.y = 0.073;
     pad.receiveShadow = true;
     group.add(pad);
 
-    // Label on pedestal
+    // Label plate on pedestal
     const labelMesh = this.createLabelPlate(`PUNTO ${label}`, colorHex);
-    labelMesh.position.set(0, 0.035, 0.082);
+    labelMesh.position.set(0, 0.035, 0.087);
     group.add(labelMesh);
 
     return group;
@@ -117,50 +112,7 @@ export class Workstation extends THREE.Group {
 
     const texture = new THREE.CanvasTexture(canvas);
     const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-    const geom = new THREE.PlaneGeometry(0.07, 0.035);
+    const geom = new THREE.PlaneGeometry(0.075, 0.038);
     return new THREE.Mesh(geom, mat);
-  }
-
-  private createConveyorBelt(): THREE.Group {
-    const group = new THREE.Group();
-
-    // Belt frame
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 });
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.03, 0.12), frameMat);
-    frame.castShadow = true;
-    group.add(frame);
-
-    // Belt surface texture with striped pattern
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(0, 0, 256, 64);
-    ctx.fillStyle = '#38bdf8';
-    for (let x = 0; x < 256; x += 32) {
-      ctx.fillRect(x, 0, 6, 64);
-    }
-
-    this.beltTexture = new THREE.CanvasTexture(canvas);
-    this.beltTexture.wrapS = THREE.RepeatWrapping;
-    this.beltTexture.wrapT = THREE.RepeatWrapping;
-    this.beltTexture.repeat.set(4, 1);
-
-    const beltMat = new THREE.MeshStandardMaterial({
-      map: this.beltTexture,
-      roughness: 0.6,
-    });
-    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.63, 0.005, 0.1), beltMat);
-    belt.position.y = 0.017;
-    group.add(belt);
-
-    return group;
-  }
-
-  public updateBeltAnimation(deltaTime: number, speed: number = 0.4) {
-    if (this.beltTexture) {
-      this.beltTexture.offset.x -= deltaTime * speed;
-    }
   }
 }

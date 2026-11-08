@@ -4,61 +4,62 @@ import { RobotArm } from '../robot/RobotArm.ts';
 import { GrabbableManager } from '../scene/GrabbableManager.ts';
 import { RobotAudio } from '../audio/RobotAudio.ts';
 
-// Precomputed accurate inverse kinematics waypoints for Pedestal A and Pedestal B
-// Pedestal A is around x: -0.24, z: 0.22 (base yaw around +138 deg / 2.4 rad or -2.4 rad depending on orientation)
-// Pedestal B is around x: 0.24, z: 0.22 (base yaw around +42 deg / 0.74 rad)
+// Precomputed optimized inverse kinematics waypoints for Pedestal A (-0.25, 0.075, 0.22)
+// and Pedestal B (0.25, 0.075, 0.22)
+// Base yaw to point at (-0.25, 0.22) is atan2(-0.25, 0.22) = -48.6 degrees (-0.849 rad)
+// Base yaw to point at (0.25, 0.22) is atan2(0.25, 0.22) = +48.6 degrees (+0.849 rad)
 const POSE_PRE_A: JointAngles = {
-  base: THREE.MathUtils.degToRad(-42),
-  shoulder: THREE.MathUtils.degToRad(32),
-  elbow: THREE.MathUtils.degToRad(40),
+  base: THREE.MathUtils.degToRad(-48.6),
+  shoulder: THREE.MathUtils.degToRad(30),
+  elbow: THREE.MathUtils.degToRad(42),
   wrist: THREE.MathUtils.degToRad(-72),
   wristRoll: 0,
-  gripper: 0.85, // Open ready to grasp
+  gripper: 0.9, // Open
 };
 
 const POSE_GRAB_A: JointAngles = {
-  base: THREE.MathUtils.degToRad(-42),
-  shoulder: THREE.MathUtils.degToRad(48),
-  elbow: THREE.MathUtils.degToRad(46),
-  wrist: THREE.MathUtils.degToRad(-94),
+  base: THREE.MathUtils.degToRad(-48.6),
+  shoulder: THREE.MathUtils.degToRad(47),
+  elbow: THREE.MathUtils.degToRad(48),
+  wrist: THREE.MathUtils.degToRad(-95),
   wristRoll: 0,
-  gripper: 0.85,
+  gripper: 0.9,
 };
 
 const POSE_LIFT_A: JointAngles = {
-  base: THREE.MathUtils.degToRad(-42),
-  shoulder: THREE.MathUtils.degToRad(20),
-  elbow: THREE.MathUtils.degToRad(30),
+  base: THREE.MathUtils.degToRad(-48.6),
+  shoulder: THREE.MathUtils.degToRad(18),
+  elbow: THREE.MathUtils.degToRad(32),
   wrist: THREE.MathUtils.degToRad(-50),
   wristRoll: 0,
   gripper: 0.2, // Clamped
 };
 
 const POSE_PRE_B: JointAngles = {
-  base: THREE.MathUtils.degToRad(42),
-  shoulder: THREE.MathUtils.degToRad(20),
-  elbow: THREE.MathUtils.degToRad(30),
+  base: THREE.MathUtils.degToRad(48.6),
+  shoulder: THREE.MathUtils.degToRad(18),
+  elbow: THREE.MathUtils.degToRad(32),
   wrist: THREE.MathUtils.degToRad(-50),
   wristRoll: 0,
-  gripper: 0.2, // Held during transit
+  gripper: 0.2,
 };
 
 const POSE_DROP_B: JointAngles = {
-  base: THREE.MathUtils.degToRad(42),
-  shoulder: THREE.MathUtils.degToRad(48),
-  elbow: THREE.MathUtils.degToRad(46),
-  wrist: THREE.MathUtils.degToRad(-94),
+  base: THREE.MathUtils.degToRad(48.6),
+  shoulder: THREE.MathUtils.degToRad(47),
+  elbow: THREE.MathUtils.degToRad(48),
+  wrist: THREE.MathUtils.degToRad(-95),
   wristRoll: 0,
   gripper: 0.2,
 };
 
 const POSE_LIFT_B: JointAngles = {
-  base: THREE.MathUtils.degToRad(42),
-  shoulder: THREE.MathUtils.degToRad(20),
-  elbow: THREE.MathUtils.degToRad(30),
+  base: THREE.MathUtils.degToRad(48.6),
+  shoulder: THREE.MathUtils.degToRad(18),
+  elbow: THREE.MathUtils.degToRad(32),
   wrist: THREE.MathUtils.degToRad(-50),
   wristRoll: 0,
-  gripper: 0.85,
+  gripper: 0.9,
 };
 
 export class SequenceController {
@@ -85,7 +86,7 @@ export class SequenceController {
       this.robot.targetAngles = { ...POSE_PRE_A };
     } else {
       this.transitionTo('SWING_TO_B');
-      this.robot.targetAngles = { ...POSE_PRE_B, gripper: 0.85 };
+      this.robot.targetAngles = { ...POSE_PRE_B, gripper: 0.9 };
     }
   }
 
@@ -107,25 +108,22 @@ export class SequenceController {
     this.timer += deltaTime;
 
     switch (this.state) {
-      // -------------------------------------------------------------
-      // TRANSFER SEQUENCE A -> B
-      // -------------------------------------------------------------
       case 'APPROACH_A':
-        if (this.timer > 1.2) {
+        if (this.timer > 1.1) {
           this.transitionTo('DESCEND_A');
           this.robot.targetAngles = { ...POSE_GRAB_A };
         }
         break;
 
       case 'DESCEND_A':
-        if (this.timer > 1.1) {
+        if (this.timer > 1.0) {
           this.transitionTo('GRIP_A');
-          this.robot.targetAngles.gripper = 0.15; // Close fingers on object
+          this.robot.targetAngles.gripper = 0.15; // Close claws
         }
         break;
 
       case 'GRIP_A':
-        if (this.timer > 0.6) {
+        if (this.timer > 0.5) {
           this.robot.getGripperWorldPosition(this.gripWorldPos);
           const grasped = this.grabbables.tryGrip(this.gripWorldPos, this.robot.angles.gripper);
           if (grasped) {
@@ -138,14 +136,14 @@ export class SequenceController {
         break;
 
       case 'LIFT_A':
-        if (this.timer > 1.0) {
+        if (this.timer > 0.9) {
           this.transitionTo('SWING_TO_B');
           this.robot.targetAngles = { ...POSE_PRE_B, gripper: 0.15 };
         }
         break;
 
       case 'SWING_TO_B':
-        if (this.timer > 1.6) {
+        if (this.timer > 1.4) {
           this.transitionTo('DESCEND_B');
           this.robot.targetAngles = { ...POSE_DROP_B, gripper: 0.15 };
         }
@@ -154,7 +152,7 @@ export class SequenceController {
       case 'DESCEND_B':
         if (this.timer > 1.0) {
           this.transitionTo('RELEASE_B');
-          this.robot.targetAngles.gripper = 0.85; // Open fingers to drop
+          this.robot.targetAngles.gripper = 0.9; // Open claws
         }
         break;
 
@@ -169,9 +167,9 @@ export class SequenceController {
         break;
 
       case 'LIFT_B':
-        if (this.timer > 1.0) {
+        if (this.timer > 0.9) {
           if (this.isContinuous) {
-            // Loop automatically back to A
+            // Loop back seamlessly from B to A
             this.transitionTo('SWING_TO_A');
             this.robot.targetAngles = { ...POSE_PRE_A };
           } else {
@@ -182,8 +180,7 @@ export class SequenceController {
         break;
 
       case 'SWING_TO_A':
-        if (this.timer > 1.6) {
-          // Restart pick and place loop
+        if (this.timer > 1.4) {
           this.transitionTo('APPROACH_A');
           this.robot.targetAngles = { ...POSE_PRE_A };
         }

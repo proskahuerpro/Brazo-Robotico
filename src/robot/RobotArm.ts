@@ -10,8 +10,8 @@ export class RobotArm extends THREE.Group {
   public upperArmMesh: THREE.Group;
   public elbowGroup: THREE.Group;        // Joint 3: Pitch (Elbow joint)
   public forearmMesh: THREE.Group;
-  public wristPitchGroup: THREE.Group;   // Joint 4: Pitch (Wrist tilt)
-  public wristRollGroup: THREE.Group;    // Joint 5: Roll (Wrist rotation)
+  public wristPitchGroup: THREE.Group;   // Joint 4: Pitch (Wrist tilt up/down)
+  public wristRollGroup: THREE.Group;    // Joint 5: Roll (Wrist 360° axial rotation)
   public gripper: Gripper;               // End-effector
 
   // Current and target joint angles (in radians/values)
@@ -25,7 +25,7 @@ export class RobotArm extends THREE.Group {
     super();
     this.name = 'RoboticArmAssembly';
 
-    // Shared high-detail materials
+    // Shared materials
     const whiteChassisMat = new THREE.MeshStandardMaterial({
       color: ROBOT_PALETTE.whiteChassis,
       roughness: 0.3,
@@ -41,7 +41,7 @@ export class RobotArm extends THREE.Group {
       roughness: 0.25,
       metalness: 0.2,
       emissive: new THREE.Color(ROBOT_PALETTE.accentOrange),
-      emissiveIntensity: 0.2,
+      emissiveIntensity: 0.25,
     });
     const silverSteelMat = new THREE.MeshStandardMaterial({
       color: ROBOT_PALETTE.metalSilver,
@@ -53,7 +53,6 @@ export class RobotArm extends THREE.Group {
     // 1. PEDESTAL & FIXED BASE
     // ==========================================
     const staticBase = new THREE.Group();
-    // Heavy machine base pedestal
     const basePlate = new THREE.Mesh(
       new THREE.CylinderGeometry(0.14, 0.16, 0.04, 32),
       darkBushingMat
@@ -63,7 +62,6 @@ export class RobotArm extends THREE.Group {
     basePlate.receiveShadow = true;
     staticBase.add(basePlate);
 
-    // Decorative mounting bolt ring
     for (let i = 0; i < 6; i++) {
       const angle = (i / 6) * Math.PI * 2;
       const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.045, 12), silverSteelMat);
@@ -71,7 +69,6 @@ export class RobotArm extends THREE.Group {
       staticBase.add(bolt);
     }
 
-    // Lower turntable collar
     const collar = new THREE.Mesh(
       new THREE.CylinderGeometry(0.11, 0.13, 0.04, 32),
       whiteChassisMat
@@ -79,7 +76,6 @@ export class RobotArm extends THREE.Group {
     collar.position.y = 0.06;
     collar.castShadow = true;
     staticBase.add(collar);
-
     this.add(staticBase);
 
     // ==========================================
@@ -97,7 +93,6 @@ export class RobotArm extends THREE.Group {
     this.baseGroup.add(rotatingHub);
     this.registerSelectable(rotatingHub, 'base');
 
-    // Accent ring in turntable
     const orangeTurntableRing = new THREE.Mesh(
       new THREE.TorusGeometry(0.106, 0.005, 16, 32),
       orangeAccentMat
@@ -106,7 +101,6 @@ export class RobotArm extends THREE.Group {
     orangeTurntableRing.position.y = 0.035;
     this.baseGroup.add(orangeTurntableRing);
 
-    // Shoulder support bracket (asymmetric dual uprights)
     const bracket = new THREE.Mesh(
       new THREE.BoxGeometry(0.14, 0.12, 0.12),
       whiteChassisMat
@@ -116,7 +110,6 @@ export class RobotArm extends THREE.Group {
     this.baseGroup.add(bracket);
     this.registerSelectable(bracket, 'shoulder');
 
-    // Circular actuator cap with bolt details (as seen prominently in the reference drawing)
     const shoulderCap = new THREE.Mesh(
       new THREE.CylinderGeometry(0.05, 0.05, 0.145, 32),
       darkBushingMat
@@ -126,7 +119,6 @@ export class RobotArm extends THREE.Group {
     shoulderCap.castShadow = true;
     this.baseGroup.add(shoulderCap);
 
-    // Circular bolt pattern on shoulder hub
     for (let i = 0; i < 6; i++) {
       const angle = (i / 6) * Math.PI * 2;
       const hubBoltL = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.01, 10), silverSteelMat);
@@ -143,12 +135,9 @@ export class RobotArm extends THREE.Group {
     // 3. JOINT 2: SHOULDER & UPPER ARM (PITCH)
     // ==========================================
     this.shoulderGroup = new THREE.Group();
-    this.shoulderGroup.position.set(0, 0.12, 0); // Pivot at shoulder axis
+    this.shoulderGroup.position.set(0, 0.12, 0);
 
-    // Upper arm beam (long structural member with beveled sides matching reference)
     this.upperArmMesh = new THREE.Group();
-
-    // Main structural box
     const armBox = new THREE.Mesh(
       new THREE.BoxGeometry(0.08, 0.32, 0.09),
       whiteChassisMat
@@ -158,7 +147,6 @@ export class RobotArm extends THREE.Group {
     this.upperArmMesh.add(armBox);
     this.registerSelectable(armBox, 'shoulder');
 
-    // Rear counterweight box (black/dark accent at rear of shoulder as in drawing)
     const counterWeight = new THREE.Mesh(
       new THREE.BoxGeometry(0.075, 0.1, 0.08),
       darkBushingMat
@@ -167,7 +155,6 @@ export class RobotArm extends THREE.Group {
     counterWeight.castShadow = true;
     this.upperArmMesh.add(counterWeight);
 
-    // Orange racing stripe / status band along the upper arm
     const upperStripe = new THREE.Mesh(
       new THREE.BoxGeometry(0.082, 0.03, 0.092),
       orangeAccentMat
@@ -181,9 +168,8 @@ export class RobotArm extends THREE.Group {
     // 4. JOINT 3: ELBOW JOINT (PITCH)
     // ==========================================
     this.elbowGroup = new THREE.Group();
-    this.elbowGroup.position.set(0, 0.32, 0); // Elbow pivot at end of upper arm
+    this.elbowGroup.position.set(0, 0.32, 0);
 
-    // Elbow cylinder housing
     const elbowHub = new THREE.Mesh(
       new THREE.CylinderGeometry(0.045, 0.045, 0.11, 24),
       darkBushingMat
@@ -192,9 +178,7 @@ export class RobotArm extends THREE.Group {
     elbowHub.castShadow = true;
     this.elbowGroup.add(elbowHub);
 
-    // Forearm link (cylinder with control box and narrowing neck)
     this.forearmMesh = new THREE.Group();
-
     const forearmMain = new THREE.Mesh(
       new THREE.CylinderGeometry(0.038, 0.042, 0.22, 24),
       whiteChassisMat
@@ -204,7 +188,6 @@ export class RobotArm extends THREE.Group {
     this.forearmMesh.add(forearmMain);
     this.registerSelectable(forearmMain, 'elbow');
 
-    // Electronics / Motor pack on forearm (matching side panel in reference drawing)
     const electronicsBox = new THREE.Mesh(
       new THREE.BoxGeometry(0.075, 0.12, 0.045),
       whiteChassisMat
@@ -224,12 +207,11 @@ export class RobotArm extends THREE.Group {
     this.upperArmMesh.add(this.elbowGroup);
 
     // ==========================================
-    // 5. JOINT 4 & 5: WRIST ASSEMBLY (PITCH & ROLL)
+    // 5. JOINT 4 & 5: WRIST ASSEMBLY (PITCH & ROLL 360°)
     // ==========================================
     this.wristPitchGroup = new THREE.Group();
-    this.wristPitchGroup.position.set(0, 0.22, 0); // At end of forearm
+    this.wristPitchGroup.position.set(0, 0.22, 0); // At tip of forearm
 
-    // Wrist pitch hinge
     const wristPitchHub = new THREE.Mesh(
       new THREE.CylinderGeometry(0.028, 0.028, 0.075, 20),
       darkBushingMat
@@ -238,35 +220,41 @@ export class RobotArm extends THREE.Group {
     wristPitchHub.castShadow = true;
     this.wristPitchGroup.add(wristPitchHub);
 
-    // Wrist roll segment
+    // Wrist roll group spins around its local longitudinal axis (Y-axis)
     this.wristRollGroup = new THREE.Group();
-    this.wristRollGroup.position.set(0, 0.04, 0);
+    this.wristRollGroup.position.set(0, 0.035, 0);
 
     const wristRotator = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.03, 0.03, 0.05, 24),
+      new THREE.CylinderGeometry(0.03, 0.03, 0.045, 24),
       whiteChassisMat
     );
-    wristRotator.position.set(0, 0.025, 0);
+    wristRotator.position.set(0, 0.022, 0);
     wristRotator.castShadow = true;
     this.wristRollGroup.add(wristRotator);
-    this.registerSelectable(wristRotator, 'wrist');
+    this.registerSelectable(wristRotator, 'wristRoll');
 
-    // Roll indicator accent
+    // Visual pointer notch / orange indicator on wrist ring to easily observe 360° roll
     const wristOrangeBand = new THREE.Mesh(
       new THREE.TorusGeometry(0.031, 0.003, 12, 24),
       orangeAccentMat
     );
     wristOrangeBand.rotation.x = Math.PI / 2;
-    wristOrangeBand.position.y = 0.025;
+    wristOrangeBand.position.y = 0.022;
     this.wristRollGroup.add(wristOrangeBand);
+
+    const rollIndicatorNotch = new THREE.Mesh(
+      new THREE.BoxGeometry(0.01, 0.012, 0.01),
+      orangeAccentMat
+    );
+    rollIndicatorNotch.position.set(0, 0.022, 0.032);
+    this.wristRollGroup.add(rollIndicatorNotch);
 
     // ==========================================
     // 6. END-EFFECTOR GRIPPER
     // ==========================================
     this.gripper = new Gripper();
-    // Orient gripper to face along the tool vector
-    this.gripper.position.set(0, 0.05, 0);
-    this.gripper.rotation.x = Math.PI; // claws extend downward/outward
+    this.gripper.position.set(0, 0.045, 0);
+    this.gripper.rotation.x = Math.PI; // Face outwards/downwards
     this.wristRollGroup.add(this.gripper);
 
     this.wristPitchGroup.add(this.wristRollGroup);
@@ -275,7 +263,6 @@ export class RobotArm extends THREE.Group {
     this.baseGroup.add(this.shoulderGroup);
     this.add(this.baseGroup);
 
-    // Set initial poses
     this.applyAnglesImmediately(this.angles);
   }
 
@@ -286,9 +273,6 @@ export class RobotArm extends THREE.Group {
     this.selectableMeshes.push(mesh);
   }
 
-  /**
-   * Applies angles directly without interpolation
-   */
   public applyAnglesImmediately(angles: JointAngles) {
     this.angles = { ...angles };
     this.targetAngles = { ...angles };
@@ -301,15 +285,10 @@ export class RobotArm extends THREE.Group {
     this.gripper.setAperture(this.angles.gripper);
   }
 
-  /**
-   * Smoothly interpolates current angles toward target angles
-   * Returns current rotational delta speed (for audio synthesis)
-   */
-  public updateInterpolation(deltaTime: number, speedMultiplier: number = 3.5): number {
+  public updateInterpolation(deltaTime: number, speedMultiplier: number = 4.0): number {
     const t = Math.min(1.0, deltaTime * speedMultiplier);
     let totalDelta = 0;
 
-    // Helper for angular interpolation
     const lerpAngle = (current: number, target: number) => {
       const diff = target - current;
       totalDelta += Math.abs(diff);
@@ -324,22 +303,19 @@ export class RobotArm extends THREE.Group {
 
     const gripDiff = this.targetAngles.gripper - this.angles.gripper;
     totalDelta += Math.abs(gripDiff) * 0.5;
-    this.angles.gripper += gripDiff * Math.min(1.0, deltaTime * 6.0);
+    this.angles.gripper += gripDiff * Math.min(1.0, deltaTime * 8.0);
 
-    // Apply to Three.js transforms
+    // Apply rotation transforms
     this.baseGroup.rotation.y = this.angles.base;
     this.shoulderGroup.rotation.x = this.angles.shoulder;
     this.elbowGroup.rotation.x = this.angles.elbow;
     this.wristPitchGroup.rotation.x = this.angles.wrist;
-    this.wristRollGroup.rotation.y = this.angles.wristRoll;
+    this.wristRollGroup.rotation.y = this.angles.wristRoll; // Full 360° axial spin
     this.gripper.setAperture(this.angles.gripper);
 
     return totalDelta * speedMultiplier;
   }
 
-  /**
-   * Safe clamp for angles
-   */
   public setTargetJoint(joint: keyof JointAngles, value: number) {
     const limits = JOINT_LIMITS[joint];
     if (limits) {
@@ -347,9 +323,6 @@ export class RobotArm extends THREE.Group {
     }
   }
 
-  /**
-   * Returns current world position of the gripper tip
-   */
   public getGripperWorldPosition(vec: THREE.Vector3): THREE.Vector3 {
     return this.gripper.getGripWorldPosition(vec);
   }

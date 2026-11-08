@@ -5,7 +5,6 @@ import { SequenceController } from '../robot/Kinematics.ts';
 import { GrabbableManager } from '../scene/GrabbableManager.ts';
 import { RobotAudio } from '../audio/RobotAudio.ts';
 import { OBJECT_PRESETS } from '../constants.ts';
-import { ObjectConfig } from '../types.ts';
 
 export class RobotSpatialUI extends THREE.Group {
   public card: xb.UICard;
@@ -15,14 +14,16 @@ export class RobotSpatialUI extends THREE.Group {
   private sliderBase!: xb.UISlider;
   private sliderShoulder!: xb.UISlider;
   private sliderElbow!: xb.UISlider;
-  private sliderWrist!: xb.UISlider;
+  private sliderWristPitch!: xb.UISlider;
+  private sliderWristRoll!: xb.UISlider;
   private sliderGripper!: xb.UISlider;
 
   // Values display
   private textBaseVal!: xb.UIText;
   private textShoulderVal!: xb.UIText;
   private textElbowVal!: xb.UIText;
-  private textWristVal!: xb.UIText;
+  private textWristPitchVal!: xb.UIText;
+  private textWristRollVal!: xb.UIText;
   private textGripperVal!: xb.UIText;
 
   private selectedShapeIndex: number = 0;
@@ -33,13 +34,15 @@ export class RobotSpatialUI extends THREE.Group {
     private sequence: SequenceController,
     private grabbables: GrabbableManager,
     private audio: RobotAudio,
+    private positionPedestalA: THREE.Vector3,
+    private positionPedestalB: THREE.Vector3,
     private onRecalibrateTable?: () => void
   ) {
     super();
     this.name = 'RobotSpatialUI_Root';
 
     this.statusText = new xb.UIText({
-      text: 'Listo. Selecciona un modo o mueve las articulaciones.',
+      text: 'Listo. Selecciona un modo o mueve las articulaciones con las manos o mandos.',
       style: {
         fontSize: 14,
         textAlign: 'center',
@@ -71,7 +74,7 @@ export class RobotSpatialUI extends THREE.Group {
               style: { fontSize: 22, fontWeight: 'bold', color: '#ffffff' },
             }),
             new xb.UIText({
-              text: 'Brazo articulado 5-DOF + Cinemática A ➔ B',
+              text: 'Control 5-DOF + Giro 360° + Agarre de Objetos 3D',
               style: { fontSize: 13, opacity: 0.75, color: '#cbd5e1' },
             }),
           ],
@@ -111,15 +114,15 @@ export class RobotSpatialUI extends THREE.Group {
           this.sequence.stopSequence();
           this.statusText.text = 'Ciclo continuo detenido.';
         } else {
-          this.statusText.text = 'Ciclo continuo activado (Cinta transportadora).';
+          this.statusText.text = 'Ciclo continuo activado entre Pedestales.';
           this.sequence.startTransfer('A_to_B', true);
         }
       },
     });
 
     const btnStop = new xb.UIButton({
-      label: 'Parada / Home',
-      icon: 'stop',
+      label: 'Home / Reposo',
+      icon: 'restart_alt',
       style: { flexGrow: 1, backgroundColor: '#374151' },
       onClick: () => {
         this.sequence.stopSequence();
@@ -127,7 +130,8 @@ export class RobotSpatialUI extends THREE.Group {
         this.robot.setTargetJoint('shoulder', THREE.MathUtils.degToRad(25));
         this.robot.setTargetJoint('elbow', THREE.MathUtils.degToRad(45));
         this.robot.setTargetJoint('wrist', THREE.MathUtils.degToRad(-70));
-        this.robot.setTargetJoint('gripper', 0.8);
+        this.robot.setTargetJoint('wristRoll', 0);
+        this.robot.setTargetJoint('gripper', 0.85);
         this.updateSlidersFromRobot();
         this.statusText.text = 'Brazo en posición de reposo (Home).';
       },
@@ -172,9 +176,9 @@ export class RobotSpatialUI extends THREE.Group {
       style: { flexGrow: 1 },
       onClick: () => {
         const preset = OBJECT_PRESETS[this.selectedShapeIndex];
-        this.grabbables.spawnObject(preset, new THREE.Vector3(-0.24, 0.08, 0.22), 'A');
+        this.grabbables.spawnObject(preset, this.positionPedestalA, 'A');
         this.audio.playGripClick(true);
-        this.statusText.text = `Creado ${preset.name} en Punto A.`;
+        this.statusText.text = `Creado 3D: ${preset.name} en Punto A.`;
       },
     });
 
@@ -184,9 +188,9 @@ export class RobotSpatialUI extends THREE.Group {
       style: { flexGrow: 1 },
       onClick: () => {
         const preset = OBJECT_PRESETS[this.selectedShapeIndex];
-        this.grabbables.spawnObject(preset, new THREE.Vector3(0.24, 0.08, 0.22), 'B');
+        this.grabbables.spawnObject(preset, this.positionPedestalB, 'B');
         this.audio.playGripClick(true);
-        this.statusText.text = `Creado ${preset.name} en Punto B.`;
+        this.statusText.text = `Creado 3D: ${preset.name} en Punto B.`;
       },
     });
 
@@ -196,7 +200,7 @@ export class RobotSpatialUI extends THREE.Group {
       style: { width: 85, backgroundColor: '#451a1a' },
       onClick: () => {
         this.grabbables.clearAll();
-        this.statusText.text = 'Escena de objetos despejada.';
+        this.statusText.text = 'Mesa de trabajo despejada.';
       },
     });
 
@@ -248,36 +252,47 @@ export class RobotSpatialUI extends THREE.Group {
     this.sliderElbow = elbowRow.slider;
     this.textElbowVal = elbowRow.valText;
 
-    const wristRow = this.createJointRow('Muñeca (Pitch)', -90, 90, -70, (deg) => {
+    const wristPitchRow = this.createJointRow('Muñeca (Cabeceo/Pitch)', -90, 90, -70, (deg) => {
       this.sequence.stopSequence();
       this.robot.setTargetJoint('wrist', THREE.MathUtils.degToRad(deg));
-      this.textWristVal.text = `${Math.round(deg)}°`;
+      this.textWristPitchVal.text = `${Math.round(deg)}°`;
     });
-    this.sliderWrist = wristRow.slider;
-    this.textWristVal = wristRow.valText;
+    this.sliderWristPitch = wristPitchRow.slider;
+    this.textWristPitchVal = wristPitchRow.valText;
 
-    const gripperRow = this.createJointRow('Pinzas (Apertura 0-12cm)', 0, 100, 80, (val) => {
+    const wristRollRow = this.createJointRow('Muñeca (Giro 360° Roll)', -180, 180, 0, (deg) => {
+      this.sequence.stopSequence();
+      this.robot.setTargetJoint('wristRoll', THREE.MathUtils.degToRad(deg));
+      this.textWristRollVal.text = `${Math.round(deg)}°`;
+    });
+    this.sliderWristRoll = wristRollRow.slider;
+    this.textWristRollVal = wristRollRow.valText;
+
+    const gripperRow = this.createJointRow('Pinzas (Apertura 0-12cm)', 0, 100, 85, (val) => {
       this.sequence.stopSequence();
       const aperture = val / 100;
       this.robot.setTargetJoint('gripper', aperture);
       this.textGripperVal.text = `${(aperture * 12).toFixed(1)} cm`;
 
-      // Check manual grip / release
       const tipPos = new THREE.Vector3();
       this.robot.getGripperWorldPosition(tipPos);
       if (aperture < 0.35) {
         const grasped = this.grabbables.tryGrip(tipPos, aperture);
         if (grasped) {
           this.audio.playGripClick(true);
+          this.statusText.text = `¡Objeto agarrado por las tenazas!`;
         }
       } else {
-        this.grabbables.releaseHeld(tipPos);
+        const released = this.grabbables.releaseHeld(tipPos);
+        if (released) {
+          this.statusText.text = `Objeto liberado.`;
+        }
       }
     });
     this.sliderGripper = gripperRow.slider;
     this.textGripperVal = gripperRow.valText;
 
-    // Extra tools: Audio Mute & XR Surface anchor
+    // Extra tools
     const btnMute = new xb.UIButton({
       label: 'Sonido Servo',
       icon: 'volume_up',
@@ -295,7 +310,7 @@ export class RobotSpatialUI extends THREE.Group {
       style: { flexGrow: 1 },
       onClick: () => {
         this.onRecalibrateTable?.();
-        this.statusText.text = 'Toca una superficie o mesa real para colocar el simulador.';
+        this.statusText.text = 'Apunta y pellizca/pulsa sobre una mesa real para anclar el brazo.';
       },
     });
 
@@ -308,14 +323,14 @@ export class RobotSpatialUI extends THREE.Group {
     // CARD ROOT CONTAINER
     // -------------------------------------------------------------------
     this.card = new xb.UICard({
-      size: { width: 0.64, height: 'auto' },
+      size: { width: 0.66, height: 'auto' },
       manipulation: true,
       edge: true,
       style: {
         flexDirection: 'column',
-        gap: 12,
+        gap: 10,
         padding: 16,
-        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
         borderRadius: 18,
       },
       children: [
@@ -325,15 +340,15 @@ export class RobotSpatialUI extends THREE.Group {
         baseRow.panel,
         shoulderRow.panel,
         elbowRow.panel,
-        wristRow.panel,
+        wristPitchRow.panel,
+        wristRollRow.panel,
         gripperRow.panel,
         this.statusText,
         bottomToolsRow,
       ],
     });
 
-    // Position floating slightly to the right of the robot
-    this.card.position.set(0.52, 1.4, -0.9);
+    this.card.position.set(0.55, 1.35, -0.9);
     this.card.rotation.y = -0.35;
     this.add(this.card);
   }
@@ -347,12 +362,12 @@ export class RobotSpatialUI extends THREE.Group {
   ) {
     const titleText = new xb.UIText({
       text: title,
-      style: { fontSize: 14, fontWeight: 'bold', color: '#e2e8f0' },
+      style: { fontSize: 13, fontWeight: 'bold', color: '#e2e8f0' },
     });
 
     const valText = new xb.UIText({
-      text: title.includes('cm') ? '9.6 cm' : `${defaultVal}°`,
-      style: { fontSize: 14, fontWeight: 'bold', color: '#38bdf8' },
+      text: title.includes('cm') ? '10.2 cm' : `${defaultVal}°`,
+      style: { fontSize: 13, fontWeight: 'bold', color: '#38bdf8' },
     });
 
     const header = new xb.UIPanel({
@@ -371,12 +386,12 @@ export class RobotSpatialUI extends THREE.Group {
       max,
       step: 1,
       value: defaultVal,
-      style: { width: '100%', height: 32 },
+      style: { width: '100%', height: 30 },
       onInput: (v) => onInput(v),
     });
 
     const panel = new xb.UIPanel({
-      style: { width: '100%', flexDirection: 'column', gap: 4 },
+      style: { width: '100%', flexDirection: 'column', gap: 3 },
       children: [header, slider],
     });
 
@@ -393,8 +408,11 @@ export class RobotSpatialUI extends THREE.Group {
     this.sliderElbow.value = THREE.MathUtils.radToDeg(this.robot.angles.elbow);
     this.textElbowVal.text = `${Math.round(this.sliderElbow.value)}°`;
 
-    this.sliderWrist.value = THREE.MathUtils.radToDeg(this.robot.angles.wrist);
-    this.textWristVal.text = `${Math.round(this.sliderWrist.value)}°`;
+    this.sliderWristPitch.value = THREE.MathUtils.radToDeg(this.robot.angles.wrist);
+    this.textWristPitchVal.text = `${Math.round(this.sliderWristPitch.value)}°`;
+
+    this.sliderWristRoll.value = THREE.MathUtils.radToDeg(this.robot.angles.wristRoll);
+    this.textWristRollVal.text = `${Math.round(this.sliderWristRoll.value)}°`;
 
     const gripAperture = this.robot.angles.gripper;
     this.sliderGripper.value = gripAperture * 100;
